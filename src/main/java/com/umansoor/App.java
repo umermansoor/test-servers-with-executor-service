@@ -56,8 +56,15 @@ public class App
                
             }
         }
-                
-        System.exit(0);
+             
+        Thread.sleep(5000); // Wait 5 seconds before dying
+        try { 
+            tcp.closeSocket();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        serverThread.interrupt();
+        exec.shutdownNow();
 
     }
 }

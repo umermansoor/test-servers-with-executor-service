@@ -39,32 +39,46 @@ public class SimpleTcpServer implements Runnable
         
     }
     
-    public void interrupt() {
+    
+    /**
+     * **fucking** ServerSocket.accept() doesn't respond to Thread.interrupt()
+     * hence have to manually close the socket.
+     * @throws IOException 
+     */
+    public void closeSocket() throws IOException {
+        serverSocket.close();
+        
         
     }
+
+    
     
     @Override
     public void run() {
         int numClients = 0;
-        try 
-        {
+      
             while(true) {
                 System.out.println("waiting for client connection...");
+                
                 try {
                     exec.execute(new ClientHandler(serverSocket.accept()));
+                    
                     System.out.println("client accepted: " + ++numClients);
 
                     if (Thread.interrupted()) {
                         throw new InterruptedException();
                     }
                 } catch (InterruptedException ie) {
-                    return;
+                    break;
+                } catch (SocketException e) {
+                    break;
+                } catch (IOException ioe) {
+                    break;
                 }
+                
             }
-                  
-        } catch (IOException e) {
-            exec.shutdown();
-        }
+            
+             exec.shutdownNow();
     }
     
     private class ClientHandler implements Runnable {
@@ -80,35 +94,33 @@ public class SimpleTcpServer implements Runnable
             PrintWriter out = null;
             
             // keep connection open for certain length of time
-            final int maxConnectionLength = 1 * 1000 * 60;
+            final int maxConnectionLength = 1 * 1000 * 60; // 1 minute
             long startTime = System.currentTimeMillis();
             // go into an infinite chitty chat routine with the client
             try {
-            out = new PrintWriter(clientSocket.getOutputStream());
-            
-            while (true) {
-                // Get a random quote
-                int randIndex = 0 + (int)(Math.random() * ((randomQuotes.size()-1 - 0) + 1));
-                
-                out.write(randomQuotes.get(randIndex) + "\r\n");
-                out.flush();
-                Thread.sleep(3000);
-                
-                if (System.currentTimeMillis() - startTime > maxConnectionLength) {
-                    // Maximum session length reached. Timeout
-                    out.write("bye\r\n");
+                out = new PrintWriter(clientSocket.getOutputStream());
+
+                while (true) {
+                    // Get a random quote
+                    int randIndex = 0 + (int)(Math.random() * ((randomQuotes.size()-1 - 0) + 1));
+
+                    out.write(randomQuotes.get(randIndex) + "\r\n");
                     out.flush();
-                    clientSocket.shutdownOutput();
-                    clientSocket.close();
+                    Thread.sleep(3000);
+
+                    if (System.currentTimeMillis() - startTime > maxConnectionLength) {
+                        // Maximum session length reached. Timeout
+                        out.write("bye\r\n");
+                        out.flush();
+                        clientSocket.shutdownOutput();
+                        clientSocket.close();
+                    }
                 }
-            }
-            
             
             } catch (IOException ioe) {
                 return;
                 
-            }
-            catch (InterruptedException ie) {
+            } catch (InterruptedException ie) {
                 return;
             }
             
